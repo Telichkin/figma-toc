@@ -10,7 +10,7 @@ async function connect() {
   }
 }
 
-export async function getUsersCollection() {
+export async function getDb() {
   await connect();
-  return client.db('main').collection('users');
+  return client.db('main');
 }

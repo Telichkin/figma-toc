@@ -1,6 +1,7 @@
 <script type="typescript">
-  import { sleep, EMAIL_REGEX } from '$lib/utils';
+  import { sleep, EMAIL_REGEX, TOKEN_KEY } from '$lib/utils';
   import { fade } from 'svelte/transition';
+  import { goto } from '$app/navigation';
 
   const NUM_REGEX = /^[0-9]+$/;
 
@@ -8,7 +9,8 @@
     EMAIL: 1,
     ONE_TIME_CODE: 2,
   };
-  let step = steps.ONE_TIME_CODE;
+  let step = steps.EMAIL;
+  let currentOtcId = '';
 
   ////////////////
   // Email step //
@@ -20,9 +22,18 @@
   async function handleSendCode(e: Event) {
     e.preventDefault();
     sending = true;
-    await sleep(1000);
+    const [resp,] = await Promise.all([
+      fetch('/otc-send.json', { method: 'POST', body: JSON.stringify({ email }), headers: { 'content-type': 'application/json' } }),
+      sleep(300),
+    ]);
+    if (resp.ok) {
+      const data = await resp.json();
+      if (data.id) {
+        currentOtcId = data.id;
+        step = steps.ONE_TIME_CODE;
+      }
+    }
     sending = false;
-    step = steps.ONE_TIME_CODE;
   }
 
   $: emailIsValid = isEmailValid(email);
@@ -106,7 +117,17 @@
   async function handleOtcSubmit(e?: Event) {
     e && e.preventDefault();
     otcSending = true;
-    await sleep(1000);
+    const [resp,] = await Promise.all([
+      fetch('/otc-submit.json', { method: 'POST', body: JSON.stringify({ email, otc: otc.join(''), otcId: currentOtcId }), headers: { 'content-type': 'application/json' } }),
+      sleep(300),
+    ]);
+    if (resp.ok) {
+      const data = await resp.json();
+      if (data.token) {
+        localStorage.setItem(TOKEN_KEY, data.token);
+        goto('/');
+      }
+    }
     otcSending = false;
   }
 
